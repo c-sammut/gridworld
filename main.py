@@ -1,27 +1,37 @@
 from tkinter import *
 from tkinter import simpledialog
 from tkinter import filedialog
-import agent, RandomWalk, Qlearning, WallFollow
+from PIL import Image, ImageDraw, ImageFont
+import agent, RandomWalk, Qlearning, SearchAgent, WallFollow
 import gridworld, astar
 import math
-from PIL import Image, ImageDraw, ImageFont
+import platform
 
 DEFAULT_TILEW = 32
 DEFAULT_TILEH = 32
 
-TIMEOUT = 5000
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 YELLOW = (255, 255, 0)
 GREY50 = (128, 128, 128)
-IMGFONT = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeSans.ttf", 11)
 LOGFILE = "./log"
 
+if platform.system() == 'Linux':
+    IMGFONT = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeSans.ttf", 11)
+elif platform.system() == 'Darwin':
+    IMGFONT = ImageFont.truetype("/System/Library/Fonts/Geneva.ttf", 11)
+elif platform.system() == 'Windows':
+    IMGFONT = ImageFont.truetype("C:\Windows\Fonts\Arial.ttf", 11)
+else:
+    raise Exception("Unknown operating system")
+
 agents = [("Random Walk", RandomWalk.RandomWalk),
+          ("Search Agent", SearchAgent.SearchAgent),
           ("Q-Learning", Qlearning.Qlearning),
           ("WallFollower", WallFollow.WallFollow)]
+
 
 class ResizeDlg(simpledialog.Dialog):
     def __init__(self, master, w, h):
@@ -78,7 +88,8 @@ class SimulateDlg(simpledialog.Dialog):
         
     def apply(self):
         self.result = int(self.stepentry.get())
-        
+
+
 class DoRunsDlg(simpledialog.Dialog):
     def __init__(self, master):
         # String variable inputs
@@ -110,7 +121,8 @@ class DoRunsDlg(simpledialog.Dialog):
     def apply(self):
         self.result = (int(self.stepentry.get()),
                        int(self.runentry.get()))
-        
+
+
 class TestDisplay(Toplevel):
     def __init__(self, parent, w, h, tileW, tileH, gw, tilesteps):
         """
@@ -126,7 +138,7 @@ class TestDisplay(Toplevel):
         
         menu = Menu(self)
         menu.add_command(label="Save", command=self.cmd_save)
-        self.config(menu = menu)
+        self.config(menu=menu)
         
         cW = w * tileW
         cH = h * tileH
@@ -146,7 +158,6 @@ class TestDisplay(Toplevel):
             x *= tileW
             y *= tileH
             
-            filled = False
             # Draw wall
             if gw.tiles[t] == gridworld.TILE_WALL:
                 filled = True
@@ -155,10 +166,10 @@ class TestDisplay(Toplevel):
                                              x + tileW,
                                              y + tileH,
                                              fill="black")
-                self.draw.rectangle([x,
+                self.draw.rectangle((x,
                                      y,
                                      x + tileW,
-                                     y + tileH],
+                                     y + tileH),
                                     fill=BLACK)
             # Draw goal
             elif gw.tiles[t] == gridworld.TILE_GOAL:
@@ -199,7 +210,7 @@ class TestDisplay(Toplevel):
                     colorstr = "green"
                     color = GREEN
                     stepstr = "+0"
-                elif steps == TIMEOUT:
+                elif steps == agent.TIMEOUT:
                     colorstr = "red"
                     color = RED
                 else:
@@ -212,10 +223,10 @@ class TestDisplay(Toplevel):
                                              x + tileW,
                                              y + tileH,
                                              fill=colorstr)
-                self.draw.rectangle([x,
+                self.draw.rectangle((x,
                                      y,
                                      x + tileW,
-                                     y + tileH],
+                                     y + tileH),
                                     fill=color)
                 
                 self.canvas.create_text(midX,
@@ -223,11 +234,11 @@ class TestDisplay(Toplevel):
                                         text=stepstr,
                                         font=("FreeSans", 9))
                                         
-                left, top, right, bottom = self.draw.textbbox((x,y), stepstr, font=IMGFONT)
+                left, top, right, bottom = self.draw.textbbox((x, y), stepstr, font=IMGFONT)
                 textW = right - left
                 textH = bottom - top
-                self.draw.text([midX - textW * 0.5,
-                                midY - textH * 0.5],
+                self.draw.text((midX - textW * 0.5,
+                                midY - textH * 0.5),
                                stepstr,
                                font=IMGFONT,
                                fill=BLACK)
@@ -245,13 +256,9 @@ class TestDisplay(Toplevel):
             self.draw.line([0, tileY, cW, tileY], fill=GREY50)
             
     def cmd_save(self, event=None):
-        opts = {}
-        opts["defaultextension"] = ".png"
-        opts["filetypes"] = [("Portable Network Graphics (PNG)", ".png")]
-        opts["parent"] = self
-        opts["initialdir"] = "./results"
-        opts["title"] = "Save test result"
-        
+        opts = {"defaultextension": ".png", "filetypes": [("Portable Network Graphics (PNG)", ".png")], "parent": self,
+                "initialdir": "./results", "title": "Save test result"}
+
         f = filedialog.asksaveasfilename(**opts)
         if not f: return
         
@@ -263,14 +270,12 @@ class TestDisplay(Toplevel):
     def close(self, event=None):
         self.destroy()
 
+
 class GUI(Tk):
     def __init__(self, w = gridworld.DEFAULT_W, h = gridworld.DEFAULT_H,
                  tileW = DEFAULT_TILEW, tileH = DEFAULT_TILEH):
         Tk.__init__(self)
-        
-        # The current agent
-        self.agent = RandomWalk.RandomWalk(16*16)
-        
+
         # Store whether mouse is currently creating or destroying walls
         self.makewall = True
         
@@ -288,10 +293,13 @@ class GUI(Tk):
         
         # The currently-hovered tile
         self.cur_index = -1
-        
+
         # The grid world
         self.gw = gridworld.GridWorld()
-        
+
+        # The current agent
+        self.agent = RandomWalk.RandomWalk(self.gw)
+
         # The log file
         self.log = None
         self.startlog()
@@ -306,7 +314,9 @@ class GUI(Tk):
         self.bind("<space>", self.cmd_step)
         self.bind("<r>", self.cmd_reset)
         self.bind("<s>", self.cmd_simulate)
+        self.bind("<p>", self.cmd_find_path)
         self.bind("<t>", self.cmd_test)
+
         self.protocol("WM_DELETE_WINDOW", self._close)
         
         # Set up menu bar
@@ -329,6 +339,7 @@ class GUI(Tk):
         
         submenu = Menu(self.menu, tearoff=0)
         submenu.add_command(label="Simulate", command=self.cmd_simulate)
+        submenu.add_command(label="A* Path", command=self.cmd_find_path)
         submenu.add_command(label="Test", command=self.cmd_test)
         submenu.add_command(label="Do Runs", command=self.cmd_doruns)
         submenu.add_command(label="Average Return", command=self.cmd_avgret)
@@ -339,7 +350,7 @@ class GUI(Tk):
         # Set up canvas
         self.gw.w = w
         self.gw.h = h
-        self.state_count = w * h
+#        self.state_count = w * h
         self.tileW = tileW
         self.tileH = tileH
         self.canvas = Canvas(self)
@@ -587,24 +598,34 @@ class GUI(Tk):
                                              outline="yellow")
             
             # Draw agent
-            if self.gw.agentindex == t:
-                self.canvas.create_oval(x + 3,
-                                        y + 3,
-                                        x + self.tileW - 2,
-                                        y + self.tileH - 2,
-                                        fill="red")
-            
+            if self.agent.state == t:
+                self.agent.draw_agent(self.canvas, self.tileW, self.tileH)
+
+                if self.agent.heading == gridworld.E:
+                    self.canvas.create_line(x + 6,
+                                        y + self.tileH * 0.5,
+                                        x + self.tileW - 6,
+                                        y + self.tileH * 0.5,
+                                        arrow=LAST,
+                                        arrowshape=(12, 16, 6))
+                if self.agent.heading == gridworld.W:
+                    self.canvas.create_line(x + 6,
+                                        y + self.tileH * 0.5,
+                                        x + self.tileW - 6,
+                                        y + self.tileH * 0.5,
+                                        arrow=FIRST,
+                                        arrowshape=(12, 16, 6))
+
             # Draw tile insides
             if not filled:
                 midX = x + self.tileW * 0.5
                 midY = y + self.tileH * 0.5
-                
+
                 if self.show_weights.get():
-                    S = self.gw.tiles[t]
-                    Qs = self.agent.get_Qs(S)
-                    
+                    Qs = self.agent.get_Qs(t)
+
                     minQ = min(Qs)
-                    
+
                     maxlen = -minQ + max(Qs)
                     if maxlen > 0:
                         # Draw action weights
@@ -612,152 +633,154 @@ class GUI(Tk):
                             ang = A * math.pi * 0.5
                             l = (-minQ + Qs[A]) / maxlen
                             arrow = NONE if l < 1 else LAST
-                            
+
                             l *= min(self.tileW, self.tileH) * 0.5
                             lX = l * math.cos(ang)
                             lY = -l * math.sin(ang)
-                            
+
                             self.canvas.create_line(midX,
                                                     midY,
                                                     midX + lX,
                                                     midY + lY,
                                                     arrow=arrow,
                                                     arrowshape=(6,8,3))
-                
+
                 # Draw number
                 if self.show_nums.get():
                     self.canvas.create_text(midX,
                                             midY,
                                             text = "{}".format(self.gw.tiles[t]))
-        
+
         # Horizontal lines
         for x in range(self.gw.w):
             tileX = x * self.tileW
             self.canvas.create_line(tileX, 0, tileX, cH, fill="grey50")
-        
+
         # Vertical lines
         for y in range(self.gw.h):
             tileY = y * self.tileH
             self.canvas.create_line(0, tileY, cW, tileY, fill="grey50")
-    
+
     def update_buttons(self):
         self.run_btn["text"] = "Pause" if self.agentalarm else "Run"
-            
+
     def update_rate(self, event=None):
         self.agentrate = int(10 ** self.rate_scl.get())
         self.rate_text["text"] = "Rate: {:d} ms/step".format(self.agentrate)
-        
+
     def update_tileinfo(self):
         tile_type = "None"
         right = 0.0
         up = 0.0
         left = 0.0
         down = 0.0
-        
+
         if self.cur_index >= 0:
             tile = self.gw.tiles[self.cur_index]
-            
+
             if tile == gridworld.TILE_GOAL:
                 tile_type = "Goal"
             elif tile == gridworld.TILE_WALL:
                 tile_type = "Wall"
             else:
                 tile_type = "{}".format(tile)
-            
-            if tile >= 0 and tile < agent.state_count:
+
+            if tile >= 0 and tile < self.gw.get_state_count():
                 right, up, left, down = self.agent.get_Qs(tile)
-        
+
         self.tile_type.set(tile_type)
         fmt = "{:.3f}"
         self.q_right.set(fmt.format(right))
         self.q_up.set(fmt.format(up))
         self.q_left.set(fmt.format(left))
         self.q_down.set(fmt.format(down))
-        
+
     def update_agentinfo(self):
         self.agent.update_info()
-        
+
     def cmd_togglerand(self, event=None):
         if self.rand_start.get():
             self.gw.agentstart = -1
         else:
-            self.gw.agentstart = self.gw.agentindex
-            
+            self.gw.agentstart = self.agent.state
+
         self.redraw()
-    
+
     def cmd_runpause(self, event=None):
         # If there's an alarm running, pause
         if self.agentalarm:
             self.pause()
         else:
             self.resume()
-            
+
     def cmd_reset(self, event=None):
         # Reset the agent
         self.agent.reset()
-        self.gw.initworld()
-        
+
         # Stop the agent from running
         self.pause()
         self.running = False
-        
+
         # Restart log
         self.startlog()
-        
+
         self.redraw()
         self.update_buttons()
         self.update_agentinfo()
-        
+
     def cmd_step(self, event=None):
         self.running = True
         self.step_agent()
         self.redraw()
         self.update_agentinfo()
-    
+
     def cmd_resize(self, event=None):
         resize = ResizeDlg(self, self.gw.w, self.gw.h)
-        
+
         # Resize is good to go
         if resize.result:
             w, h = resize.result
             self.resize(w, h)
-            
+
     def cmd_setagent(self, agentclass):
-        self.agent = agentclass(self.state_count)
-        self.init_agent_panels()
-        self.cmd_reset()
-            
+        try:
+            self.agent = agentclass(self.gw)
+            self.init_agent_panels()
+            self.cmd_reset()
+        except Exception as e:
+            print(e)
+
     def cmd_simulate(self, event=None):
         simulate = SimulateDlg(self)
-        
+
         if simulate.result:
             self.simulate(simulate.result)
-            
+
     def cmd_doruns(self, event=None):
         dlg = DoRunsDlg(self)
-        
+
         if dlg.result:
             self.doruns(*dlg.result)
-            
+
     def cmd_avgret(self, event=None):
         dlg = DoRunsDlg(self)
-        
+
         if dlg.result:
             self.avgret(*dlg.result)
-            
+
     def cmd_test(self, event=None):
         # Find the goal
         goal = None
         for i, t in enumerate(self.gw.tiles):
             if t == gridworld.TILE_GOAL:
                 goal = i
-                
+
         if not goal:
             return
-            
+
         # Set the agent to testing mode
         self.agent.set_testmode(True)
-        
+
         # Check each tile
         tilesteps = [(-1, -1)] * len(self.gw.tiles)
         valid = self.gw.validtiles()
@@ -770,26 +793,59 @@ class GUI(Tk):
                                    lambda tile: not self.gw.tileblocked(*self.gw.indextopos(tile)),
                                    lambda a, b: astar.manhattan_dist(self.gw.indextopos(a),
                                                                      self.gw.indextopos(b)))
-            
+
             # Run the agent from this point
             self.agent.init_episode()
-            self.gw.agentindex = start
+            self.agent.state = start
             steps = 0
             while not self.step_agent():
                 steps += 1
-            
-            # Store this in the array    
+
+            # Store this in the array
             tilesteps[start] = (len(path) - 2, steps)
-            
+
         # Return the agent to normal mode
         self.agent.set_testmode(False)
-        
+
         # Display results
         results = TestDisplay(self, self.gw.w, self.gw.h, self.tileW, self.tileH, self.gw, tilesteps)
-        
+
         self.redraw()
         self.update_agentinfo()
-            
+
+    def cmd_find_path(self, event=None):
+        # Find the goal
+        goal = None
+        for i, t in enumerate(self.gw.tiles):
+            if t == gridworld.TILE_GOAL:
+                goal = i
+
+        if not goal:
+            return
+
+        start = self.agent.state
+        tilesteps = [(-1, -1)] * len(self.gw.tiles)
+
+        path = astar.find_path(self.gw.immtileneighbours,
+                               start,
+                               goal,
+                               lambda tile: 1,
+                               lambda tile: not self.gw.tileblocked(*self.gw.indextopos(tile)),
+                               lambda a, b: astar.manhattan_dist(self.gw.indextopos(a),
+                                                                 self.gw.indextopos(b)))
+
+        for i in path:
+            steps = len(path) - 2
+            tilesteps[i] = (steps, steps)
+
+        print(path)
+
+        # Display results
+        results = TestDisplay(self, self.gw.w, self.gw.h, self.tileW, self.tileH, self.gw, tilesteps)
+
+        self.redraw()
+        self.update_agentinfo()
+
     def cmd_save(self, event=None):
         opts = {}
         opts["defaultextension"] = ".gwd"
@@ -797,12 +853,12 @@ class GUI(Tk):
         opts["parent"] = self
         opts["initialdir"] = "./worlds"
         opts["title"] = "Save world"
-        
+
         f = filedialog.asksaveasfilename(**opts)
         if not f: return
-        
+
         self.gw.save(f)
-        
+
     def cmd_open(self, event=None):
         opts = {}
         opts["defaultextension"] = ".gwd"
@@ -810,107 +866,107 @@ class GUI(Tk):
         opts["parent"] = self
         opts["initialdir"] = "./worlds"
         opts["title"] = "Load world"
-        
+
         f = filedialog.askopenfilename(**opts)
         if not f: return
-        
+
         self.openworld(f)
-        
+
     def openworld(self, f):
         self.gw.load(f)
         self.rand_start.set(self.gw.agentstart == -1)
         self.resize(self.gw.w, self.gw.h, False)
-            
+
         self.redraw()
-        
+
     def start_episode(self):
-        self.gw.initworld()
+        self.agent.start_agent()
         self.agent.init_episode()
-        
+
     def step_agent_gui(self, setalarm=True):
         self.step_agent()
         self.redraw()
-        
+
         self.update_tileinfo()
         self.update_agentinfo()
-        
+
         if setalarm:
             self.agentalarm = self.after(self.agentrate, self.step_agent_gui)
-        
+
     def step_agent(self):
         """
         Make the agent take one step. Returns True if the agent has reached
         the goal.
         """
-        self.agent.do_step(self.gw.get_state(),
-                           self.gw.sample,
+        self.agent.do_step(self.agent.get_state(),
+                           self.agent.sample,
                            None if self.agent.testmode else self.log)
-        
+
         # Start a new episode
         restarted = False
-        if self.gw.tiles[self.gw.agentindex] == agent.TILE_GOAL \
-            or self.agent.step > TIMEOUT:
-            
+        if self.gw.tiles[self.agent.state] == gridworld.TILE_GOAL \
+            or self.agent.step > agent.TIMEOUT:
+
             self.start_episode()
             restarted = True
-        
+
         return restarted
-        
+
     def simulate(self, stepcount):
         """
         Simulates stepcount steps before redrawing.
         """
         count = 0
-        
+
         while count < stepcount:
             self.step_agent()
             count += 1
-        
+
         self.update_agentinfo()
         self.redraw()
-        
+
     def doruns(self, stepcount, runcount):
         """
         Performs the given number of stepcount runs, storing data from
         each in separate logs.
         """
-        
+
         for run in range(runcount):
             self.agent.init_run()
             self.startlog("run{}".format(run))
             count = 0
-            
+
             while count < stepcount:
                 self.step_agent()
                 count += 1
-                
+
             self.endlog()
-                
+
         self.update_agentinfo()
         self.redraw()
-        
+
     def avgret(self, stepcount, runcount):
         """
         Performs the given number of stepcount runs, then reports the average
         return.
         """
         ret = 0
-        
+
         for run in range(runcount):
             self.agent.init_run()
             count = 0
-            
+
             while count < stepcount:
                 self.step_agent()
                 count += 1
-                
+
             ret += self.agent.returnSum / self.agent.episode
-            
+
         print(ret / runcount)
-                
+
         self.update_agentinfo()
         self.redraw()
-        
+
     def resume(self):
         """
         Resume the simulation.
@@ -918,65 +974,65 @@ class GUI(Tk):
         # Set a new alarm
         self.agentalarm = self.after(self.agentrate, self.step_agent_gui)
         self.running = True
-        
+
         self.update_buttons()
-        
+
     def pause(self):
         """
         Pause the simulation.
         """
         if not self.agentalarm:
             return
-        
+
         self.after_cancel(self.agentalarm)
         self.agentalarm = None
-        
+
         self.update_buttons()
-                
+
     def _screentotiles(self, x, y):
         return (x // self.tileW,
                 y // self.tileH)
-                          
+
     def _canv_lclick(self, event=None):
         """
         Called when the canvas is left-clicked.
         """
         x, y = self._screentotiles(event.x, event.y)
         if not self.gw.validpos(x, y): return
-        
+
         ind = self.gw.postoindex(x, y)
-        
+
         # Start dragging agent
-        if self.gw.agentindex == ind:
+        if self.agent.state == ind:
             self.dragagent = True
-        
+
         # Start making walls
         self.makewall = self.gw.tiles[ind] != gridworld.TILE_WALL
-        
+
         self._canv_lmove(event)
-            
+
     def _canv_lmove(self, event=None):
         """
         Called when the canvas is left-clicked and the mouse moves.
         """
         x, y = self._screentotiles(event.x, event.y)
         if not self.gw.validpos(x, y): return
-        
+
         ind = self.gw.postoindex(x, y)
-        
+
         # Drag agent
         if self.dragagent:
             # Don't drag into wall
             if self.gw.tiles[ind] != gridworld.TILE_WALL:
-                self.gw.agentindex = ind
+                self.agent.state = ind
                 if not self.running and not self.rand_start.get():
                     self.gw.agentstart = ind
-        
+
         # Draw walls
         else:
             # Can't draw over goal
             if self.gw.tiles[ind] == gridworld.TILE_GOAL or \
-                self.gw.agentindex == ind or self.gw.agentstart == ind:
+                self.agent.state == ind or self.gw.agentstart == ind:
                 return
             
             # Make position a wall/empty
@@ -1008,8 +1064,7 @@ class GUI(Tk):
         
         # Make position a goal/not a goal
         if self.gw.tiles[ind] == gridworld.TILE_GOAL:
-            self.gw.tiles[ind] = 0
-            self.gw.updt_tile(ind)
+            self.gw.tiles[ind] = ind
         else:
             self.gw.tiles[ind] = gridworld.TILE_GOAL
         

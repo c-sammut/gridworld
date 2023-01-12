@@ -1,22 +1,30 @@
+import gridworld
 from gridworld import *
 from agent import *
 
 class WallFollow(Agent):
 
-    def __init__(self, state_count):
-        Agent.__init__(self, state_count)
-        self.dirn = gridworld.N
-        self.blocked = GridWorld.scan(GridWorld)
+    def __init__(self, gw):
+        Agent.__init__(self, gw)
+        self.blocked = gw.scan(self.state)
+
+    def turn_left(self):
+        self.heading = self.gw.left(self.heading)
+
+    def turn_right(self):
+        self.heading = self.gw.right(self.heading)
 
     def do_step(self, S, act, logfile=None):
         Agent.do_step(self, S, act)
-        blocked = GridWorld.scan(GridWorld);
+        blocked = self.gw.scan(self.state);
 
-        if (not(blocked[self.left(self.dirn)])):
-            R, Sp = act(GridWorld.turn(GridWorld.left(self.dirn)))
-        elif not(blocked[self.front(self.dirn)]):
-            R, Sp = act(GridWorld.move(GridWorld.front(self.dirn)))
+        if (not(blocked[self.gw.left(self.heading)])):
+            R, Sp = act(gridworld.LEFT)
+        elif not(blocked[self.gw.front(self.heading)]):
+            R, Sp = act(gridworld.UP)
+        elif not (blocked[self.gw.right(self.heading)]):
+            R, Sp = act(gridworld.RIGHT)
         else:
-            R, Sp = act(GridWorld.turn(GridWorld.right(self.dirn)))
+            R, Sp = act(gridworld.DOWN)
 
         self.G += R

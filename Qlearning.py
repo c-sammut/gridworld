@@ -1,5 +1,6 @@
 from agent import *
 import random
+import gridworld
 
 class Qlearning(Agent):
     def reset(self):
@@ -12,7 +13,7 @@ class Qlearning(Agent):
         Agent.do_step(self, S, act, logfile)
         
         # Observation -> agent state
-        S = self.get_S(S)
+        S = self.get_S()
         
         # Epsilon-greedy action selection
         if ranf() <= self.epsilon:
@@ -33,7 +34,7 @@ class Qlearning(Agent):
         self.G += R
         
         # max_a(Q(S', a))
-        nextmax = 0 if Sp == TILE_GOAL else max(self.Q[Sp])
+        nextmax = 0 if Sp == gridworld.TILE_GOAL else max(self.Q[Sp])
         
         # Update Q for this state/action pair
         delta = R + self.gamma * nextmax - self.Q[S][A]

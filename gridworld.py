@@ -1,12 +1,11 @@
 import pickle
-import random
 from collections import namedtuple
 
 DEFAULT_W = 16
 DEFAULT_H = 16
 
 TILE_WALL = -1
-TILE_GOAL = 16
+TILE_GOAL = -2
 
 AGENTSTART_RAND = -1
 
@@ -27,12 +26,12 @@ dirn_offset = [
 
 class GridWorld:
     """
-    A tile-based world with a single agent.
+    A tile-based world with some agents.
     """
     def __init__(self, w=DEFAULT_W, h=DEFAULT_W):
         self.resize(w, h)
         
-    def resize(self, w, h):
+    def resize(self, w: int, h: int):
         """
         Resize the grid and add new tiles
         """
@@ -44,47 +43,13 @@ class GridWorld:
         self.tiles = [0] * w * h
         for t in range(w * h):
             self.updt_tile(t)
-        
-        self.initworld()
-    
-    def initworld(self):
-        """
-        Restart the world.
-        """
-        if self.agentstart == AGENTSTART_RAND:
-            self.agentindex = random.choice(self.validtiles())
-        else:
-            self.agentindex = self.agentstart
-    
-    def get_state(self):
+
+    def get_state_count(self):
         """
         Gets the current state.
         """
-        return self.agentindex
-    
-    def sample(self, action):
-        """
-        Takes an action and returns (reward, state)
-        Possible actions are:
-            0 = go right
-            1 = go up
-            2 = go left
-            3 = go down
-        """
-        x, y = self.indextopos(self.agentindex)
-        x += int(action == 0) - (action == 2)
-        y += int(action == 3) - (action == 1)
-        newindex = self.postoindex(x, y)
-        
-        if not(x < 0 or y < 0 or x > self.w - 1 or y > self.h - 1
-                or self.tiles[newindex] == TILE_WALL):
-            
-            self.agentindex = newindex
-        
-        newstate = self.get_state()
-        
-        return 0 if newstate == TILE_GOAL else -1, newstate
-        
+        return self.w * self.h
+
     def postoindex(self, x, y):
         """
         Converts a position to a tile index.
@@ -108,6 +73,9 @@ class GridWorld:
                 index // self.w)
    
     def tileneighbours(self, ind):
+        """
+        Return a list of all 8 neighbours
+        """
         x, y = self.indextopos(ind)
         tiles = [ind]
         
@@ -128,6 +96,9 @@ class GridWorld:
         return tiles
         
     def immtileneighbours(self, ind):
+        """
+        Return a list of just the 4 immediate neighbours
+        """
         x, y = self.indextopos(ind)
         tiles = []
         
@@ -158,15 +129,15 @@ class GridWorld:
         
     def updt_tile(self, ind):
         """
-        Updates a tile's value.
+        Set the tiles number for displaying its state.
         """
         if self.tiles[ind] == TILE_WALL or self.tiles[ind] == TILE_GOAL:
             return
 
         self.tiles[ind] = ind
 
-    def scan(self):
-        x, y = self.indextopos(self.agentindex)
+    def scan(self, state):
+        x, y = self.indextopos(state)
         return([
             self.tileblocked(x, y - 1),
             self.tileblocked(x + 1, y - 1),
@@ -201,6 +172,7 @@ class GridWorld:
             return
 
         self.agentindex = new_ind
+        return 0 if new_ind == TILE_GOAL else new_ind
 
     def validtiles(self):
         """
@@ -243,4 +215,4 @@ class GridWorld:
             self.tiles = world.tiles[:]
             if self.agentstart != AGENTSTART_RAND:
                 self.agentstart = 0
-            self.initworld()
+#            self.initworld()
