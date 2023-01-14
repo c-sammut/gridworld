@@ -194,7 +194,7 @@ class TestDisplay(Toplevel):
                                 x + tileW,
                                 y],
                                fill=BLACK)
-            
+
             # Draw tiles
             else:
                 optimal, steps = tilesteps[t]
@@ -596,7 +596,15 @@ class GUI(Tk):
                                              y + self.tileH,
                                              fill="yellow",
                                              outline="yellow")
-            
+            # Draw beam
+            elif self.gw.tiles[t] == gridworld.TILE_BEAM:
+                filled = True
+                self.canvas.create_rectangle(x,
+                                             y,
+                                             x + self.tileW,
+                                             y + self.tileH,
+                                             fill="grey50")
+
             # Draw agent
             if self.agent.state == t:
                 self.agent.draw_agent(self.canvas, self.tileW, self.tileH)

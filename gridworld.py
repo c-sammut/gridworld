@@ -6,13 +6,14 @@ DEFAULT_H = 16
 
 TILE_WALL = -1
 TILE_GOAL = -2
+TILE_BEAM = -3
 
 AGENTSTART_RAND = -1
 
 SavedWorld = namedtuple("SavedWorld", ["agentstart", "w", "h", "tiles"])
 
 N, NE, E, SE, S, SW, W, NW = range(8)
-RIGHT, UP, LEFT, DOWN = range(4)
+
 dirn_offset = [
     (0, -1),
     (1, -1),
@@ -23,6 +24,7 @@ dirn_offset = [
     (-1, 0),
     (-1, -1)
 ]
+
 
 class GridWorld:
     """
@@ -138,16 +140,34 @@ class GridWorld:
 
     def scan(self, state):
         x, y = self.indextopos(state)
+        self.clear_beams()
         return([
-            self.tileblocked(x, y - 1),
-            self.tileblocked(x + 1, y - 1),
-            self.tileblocked(x + 1, y),
-            self.tileblocked(x + 1, y + 1),
-            self.tileblocked(x, y + 1),
-            self.tileblocked(x - 1, y - 1),
-            self.tileblocked(x - 1, y),
-            self.tileblocked(x - 1, y - 1)
+            self.beam(x, y, 0, -1),
+            self.beam(x, y, 1, -1),
+            self.beam(x, y, 1, 0),
+            self.beam(x, y, 1, 1),
+            self.beam(x, y, 0, 1),
+            self.beam(x, y, -1, 1),
+            self.beam(x, y, -1, 0),
+            self.beam(x, y, -1, -1)
         ])
+
+    def clear_beams(self):
+        for i, v in enumerate(self.tiles):
+            if v == TILE_BEAM:
+                self.tiles[i] = i
+
+    def beam(self, x, y, incX, incY):
+        dist = 0
+        x += incX
+        y += incY
+
+        while not self.tileblocked(x, y):
+            self.tiles[self.postoindex(x, y)] = TILE_BEAM
+            x += incX
+            y += incY
+            dist += 1
+        return dist
 
     def left(self, dirn):
         return (dirn - 2) % 8
@@ -161,9 +181,9 @@ class GridWorld:
     def front(self, dirn):
         return dirn
 
-    def move(self, dirn):
-        offset = dirn_offset(dirn)
-        x, y = self.indextopos(self.agentindex)
+    def move(self, agent, dirn):
+        offset = dirn_offset[dirn]
+        x, y = self.indextopos(agent.state)
         new_x = x + offset[0]
         new_y = y + offset[1]
         new_ind = self.postoindex(self, new_x, new_y)
@@ -171,7 +191,7 @@ class GridWorld:
         if (self.tileblocked(new_ind)):
             return
 
-        self.agentindex = new_ind
+        agent.state = new_ind
         return 0 if new_ind == TILE_GOAL else new_ind
 
     def validtiles(self):
