@@ -163,7 +163,11 @@ class GridWorld:
         y += incY
 
         while not self.tileblocked(x, y):
-            self.tiles[self.postoindex(x, y)] = TILE_BEAM
+            i = self.postoindex(x, y)
+            if self.tiles[i] == TILE_GOAL:
+                dist +=1
+                break
+            self.tiles[i] = TILE_BEAM
             x += incX
             y += incY
             dist += 1
