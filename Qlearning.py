@@ -1,3 +1,15 @@
+"""
+Q-Learning agent
+
+Author: Elliot Colp
+Modified by: Claude Sammut
+
+This is an implementation of a standard Q-learning algorithm.
+The original code mapped "similar" tiles to the same state, e.g. all tiles not touching any wall
+mapped to one state, all tiles with a wall on the left mapped to another state, etc.
+This was changed to the more common representation of one state corresponding to one tile.
+"""
+
 from agent import *
 import random
 import gridworld

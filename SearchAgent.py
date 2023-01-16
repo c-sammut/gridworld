@@ -1,3 +1,11 @@
+"""
+This agent invokes the A* method to find the optimal route to the goal.
+Each call to do_step advances the agent to the next state in the path.
+Rest and start_agent are called from the main loop.
+
+Author: Claude Sammut
+"""
+
 from agent import *
 import astar, agent
 
