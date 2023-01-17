@@ -8,11 +8,16 @@ This is an implementation of a standard Q-learning algorithm.
 The original code mapped "similar" tiles to the same state, e.g. all tiles not touching any wall
 mapped to one state, all tiles with a wall on the left mapped to another state, etc.
 This was changed to the more common representation of one state corresponding to one tile.
+
+update 17/1/2023: added "list" to As = list(where(Qs == maxQ)[0])
+    Previously caused an error in Python 3.11 on mac
+
 """
 
 from agent import *
 import random
 import gridworld
+
 
 class Qlearning(Agent):
     def reset(self):
@@ -36,7 +41,7 @@ class Qlearning(Agent):
             # If two actions have the same Q value, pick one at random
             Qs = self.Q[S]
             maxQ = max(Qs)
-            As = where(Qs == maxQ)[0]
+            As = list(where(Qs == maxQ)[0])
             A = random.choice(As)
         
         # Observe reward and new state
