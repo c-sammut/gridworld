@@ -19,7 +19,10 @@ GREY50 = (128, 128, 128)
 LOGFILE = "./log"
 
 if platform.system() == 'Linux':
-    IMGFONT = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeSans.ttf", 11)
+    if "MANJARO" in platform.release():
+        IMGFONT = ImageFont.truetype("/usr/share/fonts/TTF/Vera.ttf", 11)
+    else:
+        IMGFONT = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeSans.ttf", 11)
 elif platform.system() == 'Darwin':
     IMGFONT = ImageFont.truetype("/System/Library/Fonts/Geneva.ttf", 11)
 elif platform.system() == 'Windows':
@@ -562,6 +565,7 @@ class GUI(Tk):
         Redraw the canvas.
         """
         self.canvas.delete("all")
+        self.canvas.configure(bg="white")
         cW = self.gw.w * self.tileW
         cH = self.gw.h * self.tileH
             
