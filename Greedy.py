@@ -18,7 +18,7 @@ FORWARD, FORWARD_RIGHT, RIGHT, BACK_RIGHT, BACK, BACK_LEFT, LEFT, FORWARD_LEFT =
 
 dirn = [1, 0, 0, 0, 3, 0, 2, 0]
 
-class WallFollow(Agent):
+class Greedy(Agent):
 
     def reset(self):
         Agent.reset(self)
@@ -37,6 +37,12 @@ class WallFollow(Agent):
 
     def do_step(self, S, act, logfile=None):
         Agent.do_step(self, S, act)
+
+        if self.head_to_goal():
+            if self.state == gridworld.TILE_GOAL:
+                return 0
+
+            return -1, self.state
 
         if self.sonar[LEFT] > 0 and not self.finding_wall:
             self.heading = (self.heading - 2) % 8       # Turn left
@@ -64,3 +70,24 @@ class WallFollow(Agent):
         # Rotate the blocked list so that the readings are relative to the robot's heading
         self.sonar = self.blocked[self.heading:] + self.blocked[:self.heading]
         print(f'{self.heading}: {self.sonar}')
+
+    def head_to_goal(self):
+        x, y = self.gw.indextopos(self.state)
+        goal_x, goal_y = self.gw.indextopos(self.gw.goal_state)
+
+        new_x = x
+        new_y = y
+
+        if goal_x > x:
+            new_x += 1
+        elif goal_x < x:
+            new_x -= 1
+
+            if goal_y > y: new_y += 1
+            elif goal_y < y: new_y -= 1
+
+        if self.gw.tileblocked(new_x, new_y):
+            return False
+        else:
+            self.state = self.gw.postoindex(new_x, new_y)
+            return True

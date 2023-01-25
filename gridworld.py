@@ -32,6 +32,7 @@ class GridWorld:
     """
     def __init__(self, w=DEFAULT_W, h=DEFAULT_W):
         self.resize(w, h)
+        self.goal_state = -1
         
     def resize(self, w: int, h: int):
         """

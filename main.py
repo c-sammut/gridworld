@@ -2,7 +2,7 @@ from tkinter import *
 from tkinter import simpledialog
 from tkinter import filedialog
 from PIL import Image, ImageDraw, ImageFont
-import agent, RandomWalk, Qlearning, SearchAgent, WallFollow
+import agent, RandomWalk, Qlearning, SearchAgent, WallFollow, Greedy
 import gridworld, astar
 import math
 import platform
@@ -30,8 +30,8 @@ else:
 agents = [("Random Walk", RandomWalk.RandomWalk),
           ("Search Agent", SearchAgent.SearchAgent),
           ("Q-Learning", Qlearning.Qlearning),
-          ("WallFollower", WallFollow.WallFollow)]
-
+          ("WallFollower", WallFollow.WallFollow),
+          ("Greedy", Greedy.Greedy)]
 
 class ResizeDlg(simpledialog.Dialog):
     def __init__(self, master, w, h):
@@ -1073,8 +1073,10 @@ class GUI(Tk):
         # Make position a goal/not a goal
         if self.gw.tiles[ind] == gridworld.TILE_GOAL:
             self.gw.tiles[ind] = ind
+            self.gw.goal_state = -1
         else:
             self.gw.tiles[ind] = gridworld.TILE_GOAL
+            self.gw.goal_state = ind
         
         # Redraw
         self.redraw()
