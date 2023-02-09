@@ -728,6 +728,7 @@ class GUI(Tk):
     def cmd_reset(self, event=None):
         # Reset the agent
         self.agent.reset()
+        self.gw.clear_beams()
 
         # Stop the agent from running
         self.pause()
