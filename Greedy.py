@@ -23,7 +23,7 @@ class Greedy(Agent):
     def reset(self):
         Agent.reset(self)
         self.heading = 0
-        self.finding_wall = False
+        self.following_wall = False
         self.blocked = self.gw.scan(self.state)
         print(f'{self.state}: {self.blocked}', end= '        ')
         self.sonar = self.blocked[self.heading:] + self.blocked[:self.heading]
@@ -38,29 +38,9 @@ class Greedy(Agent):
     def do_step(self, S, act, logfile=None):
         Agent.do_step(self, S, act)
 
-        if self.head_to_goal():
-            if self.state == gridworld.TILE_GOAL:
-                return 0
-
-            return -1, self.state
-
-        if self.sonar[LEFT] > 0 and not self.finding_wall:
-            self.heading = (self.heading - 2) % 8       # Turn left
-            self.finding_wall = True
-            print("Turn left")
-        elif self.sonar[LEFT] > 0 and self.sonar[BACK_LEFT] == 0:
-            self.heading = (self.heading - 2) % 8       # Turn left
-            print("Turn left")
-        elif self.sonar[FORWARD] > 0:
-            self.heading = self.heading                 # Keep going in same direction
-            print("Go straight")
-        elif self.sonar[FORWARD] == 0:
-            self.heading = (self.heading + 2) % 8       # Turn right
-            self.finding_wall = False
-            print("Turn right")
-        elif self.sonar[LEFT] == 0:
-            self.heading = (self.heading + 2) % 8       # Turn right
-            print("Turn right")
+        if not self.following_wall:
+            self.heading = self.head_to_goal()
+        self.heading = self.left_wall_follow()
 
         R, Sp = act(dirn[self.heading])
         self.G += R
@@ -71,6 +51,19 @@ class Greedy(Agent):
         self.sonar = self.blocked[self.heading:] + self.blocked[:self.heading]
         print(f'{self.heading}: {self.sonar}')
 
+    def left_wall_follow(self):
+        self.following_wall = True
+
+        if self.sonar[LEFT] > 0 and self.sonar[BACK_LEFT] == 0:
+            print("Turn left")
+            return (self.heading - 2) % 8       # Turn left
+        elif self.sonar[FORWARD] == 0:
+            print("Turn right")
+            return (self.heading + 2) % 8       # Turn right
+        else:
+            self.following_wall = False
+            return self.heading
+
     def head_to_goal(self):
         x, y = self.gw.indextopos(self.state)
         goal_x, goal_y = self.gw.indextopos(self.gw.goal_state)
@@ -79,15 +72,22 @@ class Greedy(Agent):
         new_y = y
 
         if goal_x > x:
-            new_x += 1
+            heading_x = gridworld.E
         elif goal_x < x:
-            new_x -= 1
-
-            if goal_y > y: new_y += 1
-            elif goal_y < y: new_y -= 1
-
-        if self.gw.tileblocked(new_x, new_y):
-            return False
+            heading_x = gridworld.W
         else:
-            self.state = self.gw.postoindex(new_x, new_y)
-            return True
+            heading_x = -1
+
+        if goal_y > y:
+            heading_y = gridworld.S
+        elif goal_y < y:
+            heading_y = gridworld.N
+        else:
+            heading_y = -1
+
+        if heading_x != -1 and heading_y != -1:
+            return random.choice([heading_x, heading_y])
+        elif heading_x != -1:
+            return heading_x
+        else:
+            return heading_y
